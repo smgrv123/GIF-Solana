@@ -8,6 +8,15 @@ const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 
 const App = () => {
   const [phantomWalletKey, setphantomWalletKey] = useState(null);
+  const [inputLinkValue, setinputLinkValue] = useState("");
+  const [gifArr, setgifArr] = useState([]);
+
+  const TEST_GIFS = [
+    "https://i.giphy.com/media/eIG0HfouRQJQr1wBzz/giphy.webp",
+    "https://media3.giphy.com/media/L71a8LW2UrKwPaWNYM/giphy.gif?cid=ecf05e47rr9qizx2msjucl1xyvuu47d7kf25tqt2lvo024uo&rid=giphy.gif&ct=g",
+    "https://media4.giphy.com/media/AeFmQjHMtEySooOc8K/giphy.gif?cid=ecf05e47qdzhdma2y3ugn32lkgi972z9mpfzocjj6z1ro4ec&rid=giphy.gif&ct=g",
+    "https://i.giphy.com/media/PAqjdPkJLDsmBRSYUp/giphy.webp",
+  ];
 
   const checkIfPhantomIsConnected = async () => {
     try {
@@ -39,6 +48,15 @@ const App = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (phantomWalletKey) {
+      console.log("phantomWalletKey", phantomWalletKey);
+      //* call solana program
+
+      setgifArr(TEST_GIFS);
+    }
+  }, [phantomWalletKey]);
+
   const connectWallet = async () => {
     const { solana } = window;
 
@@ -59,6 +77,42 @@ const App = () => {
     </button>
   );
 
+  const WalletConnected = () => (
+    <div className="connected-container">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (inputLinkValue.length > 0) {
+            console.log(inputLinkValue, "Gif Link");
+            setgifArr([...gifArr, inputLinkValue]);
+            setinputLinkValue("");
+          } else {
+            alert("Please enter a link");
+          }
+        }}
+      >
+        <input
+          type={"text"}
+          placeholder="Enter GIF Link!!"
+          value={inputLinkValue}
+          onChange={(e) => {
+            setinputLinkValue(e.target.value);
+          }}
+        />
+        <button className="cta-button submit-gif-button " onClick={() => {}}>
+          Submit
+        </button>
+      </form>
+      <div className="gif-grid">
+        {gifArr.map((gif) => (
+          <div className="gif-item" key={gif}>
+            <img src={gif} alt={gif} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="App">
       <div className="container">
@@ -67,7 +121,7 @@ const App = () => {
           <p className="sub-text">
             View your GIF collection in the metaverse ✨
           </p>
-          {!phantomWalletKey ? WalletNotConnected() : null}
+          {!phantomWalletKey ? WalletNotConnected() : WalletConnected()}
         </div>
         <div className="footer-container">
           <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
