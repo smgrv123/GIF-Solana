@@ -1,10 +1,34 @@
 import React, { useState, useEffect } from "react";
 import twitterLogo from "./assets/twitter-logo.svg";
 import "./App.css";
+import idl from "./idl.json";
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import { Program, Provider, web3 } from "@project-serum/anchor";
+import kp from './keypair.json'
 
 // Constants
 const TWITTER_HANDLE = "grover_sumrit";
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
+
+// SystemProgram is a reference to the Solana runtime!
+const { SystemProgram, Keypair } = web3;
+
+// Create a keypair for the account that will hold the GIF data.
+// let baseAccount = Keypair.generate();
+const arr = Object.values(kp._keypair.secretKey)
+const secret = new Uint8Array(arr)
+const baseAccount = web3.Keypair.fromSecretKey(secret)
+
+// Get our program's id from the IDL file.
+const programID = new PublicKey(idl.metadata.address);
+
+// Set our network to devnet.
+const network = clusterApiUrl("devnet");
+
+// Controls how we want to acknowledge when a transaction is "done".
+const opts = {
+  preflightCommitment: "processed",
+};
 
 const App = () => {
   const [phantomWalletKey, setphantomWalletKey] = useState(null);
@@ -37,6 +61,16 @@ const App = () => {
     }
   };
 
+  const getProvider = () => {
+    const connection = new Connection(network, opts.preflightCommitment);
+    const provider = new Provider(
+      connection,
+      window.solana,
+      opts.preflightCommitment
+    );
+    return provider;
+  };
+
   useEffect(() => {
     const Loading = async () => {
       await checkIfPhantomIsConnected();
@@ -48,12 +82,52 @@ const App = () => {
     };
   }, []);
 
+  const createGifAccount = async () => {
+    try {
+      const provider = getProvider();
+      console.log("first");
+      const program = new Program(idl, programID, provider);
+      console.log("ping");
+      await program.rpc.startStuffOff({
+        accounts: {
+          baseAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        signers: [baseAccount],
+      });
+      console.log(
+        "created new account with id:",
+        baseAccount.publicKey.toString()
+      );
+      await getGifArray();
+    } catch (error) {
+      console.log("error while creating account", error);
+    }
+  };
+
+  const getGifArray = async () => {
+    try {
+      const Provider = getProvider();
+      const program = new Program(idl, programID, Provider);
+      const account = await program.account.baseAccount.fetch(
+        baseAccount.publicKey
+      );
+
+      console.log("gif account connected", account);
+      setgifArr(account.gifList);
+    } catch (error) {
+      console.log("error fetching gif list", error);
+      setgifArr(null);
+    }
+  };
+
   useEffect(() => {
     if (phantomWalletKey) {
       console.log("phantomWalletKey", phantomWalletKey);
       //* call solana program
 
-      setgifArr(TEST_GIFS);
+      getGifArray();
     }
   }, [phantomWalletKey]);
 
@@ -77,41 +151,78 @@ const App = () => {
     </button>
   );
 
-  const WalletConnected = () => (
-    <div className="connected-container">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (inputLinkValue.length > 0) {
-            console.log(inputLinkValue, "Gif Link");
-            setgifArr([...gifArr, inputLinkValue]);
-            setinputLinkValue("");
-          } else {
-            alert("Please enter a link");
-          }
-        }}
-      >
-        <input
-          type={"text"}
-          placeholder="Enter GIF Link!!"
-          value={inputLinkValue}
-          onChange={(e) => {
-            setinputLinkValue(e.target.value);
-          }}
-        />
-        <button className="cta-button submit-gif-button " onClick={() => {}}>
-          Submit
-        </button>
-      </form>
-      <div className="gif-grid">
-        {gifArr.map((gif) => (
-          <div className="gif-item" key={gif}>
-            <img src={gif} alt={gif} />
+  const sendgif = async () => {
+    if (inputLinkValue.length === 0) {
+      console.log("No gif link given!");
+      return;
+    }
+    setinputLinkValue("");
+    console.log("Gif link:", inputLinkValue);
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+
+      await program.rpc.addGif(inputLinkValue, {
+        accounts: {
+          baseAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+        },
+      });
+      console.log("GIF successfully sent to program", inputLinkValue);
+
+      await getGifArray();
+    } catch (error) {
+      console.log("Error sending GIF:", error);
+    }
+  };
+
+  const WalletConnected = () => {
+    if (gifArr !== null) {
+      return (
+        <div className="connected-container">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendgif();
+            }}
+          >
+            <input
+              type={"text"}
+              placeholder="Enter GIF Link!!"
+              value={inputLinkValue}
+              onChange={(e) => {
+                setinputLinkValue(e.target.value);
+              }}
+            />
+            <button
+              className="cta-button submit-gif-button "
+              onClick={() => {}}
+            >
+              Submit
+            </button>
+          </form>
+          <div className="gif-grid">
+            {gifArr.map((gif) => (
+              <div className="gif-item" key={gif.gifLink}>
+                <img src={gif.gifLink} alt={gif.gifLink} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
-  );
+        </div>
+      );
+    } else {
+      return (
+        <div className="connected-container">
+          <button
+            className="cta-button submit-gif-button"
+            onClick={createGifAccount}
+          >
+            Do One-Time Initialization For GIF Program Account
+          </button>
+        </div>
+      );
+    }
+  };
 
   return (
     <div className="App">
