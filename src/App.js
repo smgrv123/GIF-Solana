@@ -124,9 +124,6 @@ const App = () => {
 
   useEffect(() => {
     if (phantomWalletKey) {
-      console.log("phantomWalletKey", phantomWalletKey);
-      //* call solana program
-
       getGifArray();
     }
   }, [phantomWalletKey]);
