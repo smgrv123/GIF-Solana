@@ -123,8 +123,23 @@ const App = () => {
   };
 
   useEffect(() => {
+    const getGifArr = async () => {
+      try {
+        const Provider = getProvider();
+        const program = new Program(idl, programID, Provider);
+        const account = await program.account.baseAccount.fetch(
+          baseAccount.publicKey
+        );
+
+        console.log("gif account connected", account);
+        setgifArr(account.gifList);
+      } catch (error) {
+        console.log("error fetching gif list", error);
+        setgifArr(null);
+      }
+    };
     if (phantomWalletKey) {
-      getGifArray();
+      getGifArr();
     }
   }, [phantomWalletKey]);
 
